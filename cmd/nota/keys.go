@@ -1,9 +1,12 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 
 	"nota/internal/keymap"
+	"nota/internal/kit"
 )
 
 func chordMods(ch keymap.Chord) ui.Modifiers {
@@ -38,4 +41,26 @@ func namedKey(name string) (ui.Key, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// keyLabel is the first chord bound to command, as kit.Kbd keys, or nil.
+func (app *App) keyLabel(command string) []string {
+	for _, b := range app.bindings {
+		ch, ok := keymap.ParseChord(b.Key)
+		if b.Command != command || !ok {
+			continue
+		}
+		var keys []string
+		if ch.Ctrl || ch.Super { // one key to chordMods
+			keys = append(keys, kit.Mod())
+		}
+		if ch.Shift {
+			keys = append(keys, "Shift")
+		}
+		if ch.Alt {
+			keys = append(keys, "Alt")
+		}
+		return append(keys, strings.ToUpper(ch.Key))
+	}
+	return nil
 }
