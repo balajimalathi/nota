@@ -88,10 +88,16 @@ func Dot(c *ui.Context, col ui.Color) ui.Element {
 func Tabs(c *ui.Context, selected *int, icons []*ui.SVG, labels ...string) ui.Element {
 	t := c.Theme()
 	seg := ui.SegmentedBase(c, selected, len(labels))
-	seg.Track.Padding(3).Gap(2).Radius(8).Background(t.SurfaceHover).Children(func() {
+	seg.Track.Shrink(0).Padding(3).Gap(2).Radius(8).Background(t.SurfaceHover).Children(func() {
 		for i, label := range labels {
-			s := seg.Segment(i).Grow(1).Height(26).Padding(0, 10).Radius(6).
+			// Text tabs size to their label. Icon tabs share a stretched
+			// track; a zero basis would collapse them when the track is not
+			// given a width.
+			s := seg.Segment(i).Shrink(0).Height(26).Padding(0, 10).Radius(6).
 				Justify(ui.Center).AlignItems(ui.Center).Label(label).TextColor(t.TextMuted)
+			if icons != nil {
+				s.Grow(1).MinWidth(28)
+			}
 			if i == *selected {
 				s.Background(t.Background).TextColor(t.Text).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.08))
 			} else if s.Hovered() {

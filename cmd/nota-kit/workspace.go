@@ -291,7 +291,7 @@ func (w *workspace) tabStrip(c *ui.Context) {
 		for i, path := range w.tabs {
 			on := i == w.active
 			name := note.TitleFromName(path)
-			tab := ui.Row(c.Key(path)).Height(28).Padding(0, 4, 0, 10).Gap(4).Radius(6).AlignItems(ui.Center)
+			tab := ui.Row(c.Key("tab:"+path)).Height(28).Padding(0, 4, 0, 10).Gap(4).Radius(6).AlignItems(ui.Center)
 			hover := tab.Hovered()
 			if on || hover {
 				tab.Background(t.SurfaceHover)
@@ -335,19 +335,23 @@ func (w *workspace) source(c *ui.Context, p kit.Palette, path string) {
 	st.Font.Size = float32(w.set.font)
 	th := editor.DefaultTheme(c.Theme())
 	th.ActiveLine = ui.Transparent
+	th.Tokens[editor.TokenHeading].Color = c.Theme().Text
 	th.Tokens[editor.TokenLink].Color = p.Link
+	th.Tokens[editor.TokenTag].Color = p.Link
 	if w.mode == modeLive {
 		th.Tokens[editor.TokenMeta].Color = c.Theme().TextMuted.Alpha(0.45)
 	}
 	st.Theme = th
-	ui.Row(c.Key(path)).Grow(1).Justify(ui.Center).Padding(36, 24, 0, 24).Children(func() {
-		editor.View(c, st).Grow(1).MaxWidth(720)
+	// A column, so Grow gives the editor a height. The same key as a tab
+	// would make the two one element, and the note would not show.
+	ui.Column(c.Key("edit:"+path)).Grow(1).AlignItems(ui.Center).Padding(36, 24, 48, 24).Children(func() {
+		editor.View(c, st).Grow(1).FillWidth().MaxWidth(720)
 	})
 }
 
 func (w *workspace) reading(c *ui.Context, path string) {
 	src := md.ForPreview(mockNotes[path], noEmbed)
-	ui.Scroll(c.Key(path)).Grow(1).Children(func() {
+	ui.Scroll(c.Key("read:" + path)).Grow(1).Children(func() {
 		ui.Row(c).Justify(ui.Center).Padding(40, 24).Children(func() {
 			ui.Column(c).Grow(1).MaxWidth(720).Children(func() {
 				markdown.View(c, src, &w.mdOpts)
