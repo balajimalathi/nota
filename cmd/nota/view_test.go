@@ -88,3 +88,19 @@ func TestPaletteFindsNotesAndCommands(t *testing.T) {
 		t.Errorf("Enter on settings did not open Settings; texts %q", tt.Texts())
 	}
 }
+
+func TestSidebarAndSidePane(t *testing.T) {
+	app := testApp(t)
+	tt := ui.NewTester(app.view, width, height)
+	for _, s := range []string{"New note", "Today", "Backlinks", "Outgoing"} {
+		if !tt.HasText(s) {
+			t.Errorf("no %q in %q", s, tt.Texts())
+		}
+	}
+	if err := tt.Click("Tags"); err != nil {
+		t.Fatal(err)
+	}
+	if !tt.HasText("All tags") || !tt.HasText("project") {
+		t.Errorf("tags pane shows %q", tt.Texts())
+	}
+}

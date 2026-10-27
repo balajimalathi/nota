@@ -7,54 +7,96 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"nota/internal/graph"
+	"nota/internal/kit"
 	"nota/internal/md"
 	"nota/internal/note"
 )
 
 func (app *App) sidebar(c *ui.Context) {
-	ui.Column(c).Fill().Background(c.Theme().Surface).Children(func() {
-		ui.Row(c).Padding(8, 10).Children(func() {
-			ui.Text(c, "Files").Bold()
+	kit.Scoped(c, kit.Quiet(app.pal, c.Theme().FontSize), func() {
+		t := c.Theme()
+		ui.Column(c).Fill().Padding(8).Gap(2).Background(t.Surface).Children(func() {
+			app.vaultSwitcher(c)
+			if kit.NavRow(c, kit.IconPlus, "New note", false, func() { kit.Kbd(c, app.keyLabel("newNote")...) }).Clicked() {
+				app.run("newNote")
+			}
+			if kit.NavRow(c, kit.IconDaily, "Today", false, nil).Clicked() {
+				app.run("dailyNote")
+			}
+			kit.SectionLabel(c, "Files")
+			app.outline.List.Selected = &app.fileRow
+			ui.Outline(c, &app.outline, app.roots, app.childPaths, func(path string) {
+				icon := kit.IconNote
+				if app.dirs[path] {
+					icon = kit.IconFolder
+				}
+				row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center)
+				row.ContextMenu(func(m *ui.Menu) {
+					dir := path
+					if !app.dirs[path] {
+						dir = parentPath(path)
+					}
+					if m.Item("New note").Chosen() {
+						app.newDir = dir
+						app.modalText = ""
+						app.creating = true
+					}
+					if !app.dirs[path] && m.Item("Delete").Chosen() {
+						app.openNote(path)
+						app.deleting = true
+					}
+				})
+				row.Children(func() {
+					ui.Icon(c, icon).FontSize(15).TextColor(t.TextMuted)
+					ui.Text(c, note.TitleFromName(path)).SingleLine()
+				})
+			}).Grow(1)
+			if app.fileRow >= 0 && app.fileRow < app.outline.Rows() {
+				item := app.outline.Item(app.fileRow)
+				if item != app.lastTree && !app.dirs[item] {
+					app.lastTree = item
+					app.openNote(item)
+				}
+			}
 		})
-		app.outline.List.Selected = &app.fileRow
-		ui.Outline(c, &app.outline, app.roots, app.childPaths, func(path string) {
-			label := note.TitleFromName(path)
-			if app.dirs[path] {
-				label = note.TitleFromName(path)
-			}
-			row := ui.Row(c).Grow(1).Gap(6)
-			row.ContextMenu(func(m *ui.Menu) {
-				dir := path
-				if !app.dirs[path] {
-					dir = parentPath(path)
-				}
-				if m.Item("New note").Chosen() {
-					app.newDir = dir
-					app.modalText = ""
-					app.creating = true
-				}
-				if !app.dirs[path] && m.Item("Delete").Chosen() {
-					app.openNote(path)
-					app.deleting = true
-				}
-			})
-			row.Children(func() {
-				ui.Text(c, label).SingleLine()
-			})
-		}).Grow(1)
-		if app.fileRow >= 0 && app.fileRow < app.outline.Rows() {
-			item := app.outline.Item(app.fileRow)
-			if item != app.lastTree && !app.dirs[item] {
-				app.lastTree = item
-				app.openNote(item)
-			}
-		}
 	})
 }
 
+func (app *App) vaultSwitcher(c *ui.Context) {
+	t := c.Theme()
+	name := filepathBase(app.vault.Root())
+	b := ui.ButtonBase(c).AlignSelf(ui.Stretch).Justify(ui.Start).Height(44).Padding(0, 8).Gap(10).Radius(8).
+		Tooltip("Open another vault")
+	if b.Hovered() {
+		b.Background(t.SurfaceHover)
+	}
+	b.Children(func() {
+		ui.Row(c).Size(28, 28).Radius(7).Background(app.pal.Primary).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, initial(name)).FontWeight(700).TextColor(app.pal.PrimaryForeground)
+		})
+		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
+			ui.Text(c, name).FontWeight(600).SingleLine()
+			ui.Text(c, plural(app.index.Count(), "note")).FontSize(12).TextColor(t.TextMuted)
+		})
+		ui.Icon(c, kit.IconChevronDown).FontSize(14).TextColor(t.TextMuted)
+	})
+	if b.Clicked() {
+		app.pickVault()
+	}
+}
+
+// initial is the vault mark's letter. A drive root has an empty base.
+func initial(s string) string {
+	for _, r := range s {
+		return strings.ToUpper(string(r))
+	}
+	return "N"
+}
+
 func (app *App) rightPane(c *ui.Context) {
-	ui.Column(c).Fill().Padding(8).Gap(8).Children(func() {
-		ui.Tabs(c, &app.rightTab, "Links", "Outline", "Tags", "Graph", "AI")
+	ui.Column(c).Fill().Padding(12).Gap(8).Children(func() {
+		kit.Tabs(c, &app.rightTab, []*ui.SVG{kit.IconLink, kit.IconOutline, kit.IconTag, kit.IconGraph, kit.IconAI},
+			"Links", "Outline", "Tags", "Graph", "Assistant").AlignSelf(ui.Stretch)
 		switch app.rightTab {
 		case 0:
 			app.linksPane(c)
@@ -70,49 +112,50 @@ func (app *App) rightPane(c *ui.Context) {
 	})
 }
 
+func hint(c *ui.Context, s string) {
+	ui.Row(c).Padding(4, 8).Children(func() {
+		ui.Text(c, s).FontSize(12).TextColor(c.Theme().TextMuted)
+	})
+}
+
 func (app *App) linksPane(c *ui.Context) {
 	t := app.current()
 	if t == nil {
-		ui.Text(c, "Open a note to see its links.").TextColor(c.Theme().TextMuted)
+		kit.EmptyState(c, kit.IconLink, "No note open", "Links to and from a note show here.", "")
 		return
 	}
+	row := func(group, path, title string) {
+		if kit.NavRow(c.Key(group+path), kit.IconNote, title, false, nil).Clicked() {
+			app.openNote(path)
+		}
+	}
 	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).Gap(8).Children(func() {
-			ui.Text(c, "Backlinks").Bold()
+		ui.Column(c).Gap(2).Children(func() {
+			kit.SectionLabel(c, "Backlinks")
 			backs := app.index.Backlinks(t.path)
 			if len(backs) == 0 {
-				ui.Text(c, "None").TextColor(c.Theme().TextMuted)
+				hint(c, "None yet")
 			}
 			for _, h := range backs {
-				hit := h
-				if ui.Button(c, hit.Title).Clicked() {
-					app.openNote(hit.Path)
-				}
+				row("back:", h.Path, h.Title)
 			}
 			out, missing := app.index.Outgoing(t.path)
-			ui.Text(c, "Outgoing").Bold()
+			kit.SectionLabel(c, "Outgoing")
 			if len(out) == 0 && len(missing) == 0 {
-				ui.Text(c, "None").TextColor(c.Theme().TextMuted)
+				hint(c, "None yet")
 			}
 			for _, h := range out {
-				hit := h
-				if ui.Button(c, hit.Title).Clicked() {
-					app.openNote(hit.Path)
-				}
+				row("out:", h.Path, h.Title)
 			}
 			for _, name := range missing {
-				n := name
-				ui.Text(c, "Unresolved "+n).TextColor(c.Theme().TextMuted)
+				hint(c, "Unresolved "+name)
 			}
-			ui.Text(c, "Related").Bold()
-			if ui.Button(c, "Find related").Clicked() {
+			kit.SectionLabel(c, "Related")
+			if kit.NavRow(c, kit.IconAI, "Find related", false, nil).Clicked() {
 				app.findRelated()
 			}
 			for _, h := range app.related {
-				hit := h
-				if ui.Button(c, note.TitleFromName(hit.Path)).Clicked() {
-					app.openNote(hit.Path)
-				}
+				row("rel:", h.Path, note.TitleFromName(h.Path))
 			}
 		})
 	})
@@ -121,22 +164,22 @@ func (app *App) linksPane(c *ui.Context) {
 func (app *App) outlinePane(c *ui.Context) {
 	t := app.current()
 	if t == nil {
-		ui.Text(c, "No note").TextColor(c.Theme().TextMuted)
+		kit.EmptyState(c, kit.IconOutline, "No note open", "Headings of the open note show here.", "")
 		return
 	}
 	doc := app.cachedDoc(t)
 	if len(doc.Headings) == 0 {
-		ui.Text(c, "No headings").TextColor(c.Theme().TextMuted)
+		kit.EmptyState(c, kit.IconOutline, "No headings", "Lines starting with # show here.", "")
 		return
 	}
 	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).Gap(4).Children(func() {
-			for _, h := range doc.Headings {
-				head := h
-				label := strings.Repeat("  ", head.Level-1) + head.Text
-				if ui.Button(c, label).Clicked() {
-					t.state.GoTo(editor.Pos{Line: head.Line, Col: 0})
-				}
+		ui.Column(c).Gap(2).Children(func() {
+			for i, h := range doc.Headings {
+				ui.Row(c.Key(i)).PaddingStart(float32(h.Level-1) * 12).Children(func() {
+					if kit.NavRow(c, nil, h.Text, false, nil).Grow(1).Clicked() {
+						t.state.GoTo(editor.Pos{Line: h.Line, Col: 0})
+					}
+				})
 			}
 		})
 	})
@@ -144,28 +187,26 @@ func (app *App) outlinePane(c *ui.Context) {
 
 func (app *App) tagsPane(c *ui.Context) {
 	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).Gap(6).Children(func() {
+		ui.Column(c).Gap(2).Children(func() {
 			if app.tagFilter != "" {
-				ui.Text(c, "#"+app.tagFilter).Bold()
-				if ui.Button(c, "Clear").Clicked() {
+				if kit.NavRow(c, kit.IconClose, "#"+app.tagFilter, true, nil).Tooltip("Clear filter").Clicked() {
 					app.tagFilter = ""
 				}
 				for _, h := range app.index.Tagged(app.tagFilter) {
-					hit := h
-					if ui.Button(c, hit.Title).Clicked() {
-						app.openNote(hit.Path)
+					if kit.NavRow(c.Key(h.Path), kit.IconNote, h.Title, false, nil).Clicked() {
+						app.openNote(h.Path)
 					}
 				}
 				return
 			}
 			tags := app.index.Tags()
 			if len(tags) == 0 {
-				ui.Text(c, "No tags").TextColor(c.Theme().TextMuted)
+				kit.EmptyState(c, kit.IconTag, "No tags", "Write #tag in a note to group it.", "")
 				return
 			}
-			for _, tag := range tags {
-				tg := tag
-				if ui.Button(c, "#"+tg.Tag+"  "+itoa(tg.Count)).Clicked() {
+			kit.SectionLabel(c, "All tags")
+			for _, tg := range tags {
+				if kit.NavRow(c.Key(tg.Tag), kit.IconTag, tg.Tag, false, func() { ui.Badge(c, itoa(tg.Count)) }).Clicked() {
 					app.tagFilter = tg.Tag
 				}
 			}
@@ -180,11 +221,11 @@ func (app *App) graphPane(c *ui.Context) {
 	}
 	nodes, edges := app.index.Neighborhood(path, 2)
 	if len(nodes) == 0 {
-		ui.Text(c, "Open a note to see the notes around it.").TextColor(c.Theme().TextMuted)
+		kit.EmptyState(c, kit.IconGraph, "No note open", "Notes around the open note show here.", "")
 		return
 	}
 	lay := graph.Layout(nodes, edges)
-	box := ui.Box(c).Grow(1).Fill()
+	box := ui.Box(c).Grow(1).Fill().Radius(8).Border(1, c.Theme().Border)
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		for _, e := range edges {
 			a, aok := lay[e[0]]
