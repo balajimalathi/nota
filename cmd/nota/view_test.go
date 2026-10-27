@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -141,5 +142,36 @@ func TestSettingsPicksTheme(t *testing.T) {
 	}
 	if app.settings.Theme != "dark" {
 		t.Errorf("theme %q after clicking Dark", app.settings.Theme)
+	}
+}
+
+// TestSnapshots writes the app at 2x for review when NOTA_SHOTS names a
+// folder, relative to the repository root.
+func TestSnapshots(t *testing.T) {
+	dir := os.Getenv("NOTA_SHOTS")
+	if dir == "" {
+		t.Skip("set NOTA_SHOTS=docs/design to write the screens")
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join("..", "..", dir)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, theme := range []string{"light", "dark"} {
+		app := testApp(t)
+		app.settings.Theme = theme
+		tt := ui.NewTester(app.view, width, height)
+		tt.SetScale(2)
+		tt.Frame()
+		f, err := os.Create(filepath.Join(dir, "app-"+theme+".png"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = png.Encode(f, tt.Image())
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
