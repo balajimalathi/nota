@@ -137,6 +137,8 @@ func (w *workspace) view(c *ui.Context, p kit.Palette) {
 		})
 		w.statusBar(c, p)
 	})
+	w.commandPalette(c, p)
+	w.settingsDialog(c, p)
 }
 
 func (w *workspace) styleMarkdown(c *ui.Context, p kit.Palette) {
