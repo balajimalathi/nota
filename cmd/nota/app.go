@@ -20,6 +20,7 @@ import (
 	"nota/internal/embed"
 	"nota/internal/index"
 	"nota/internal/keymap"
+	"nota/internal/kit"
 	"nota/internal/md"
 	"nota/internal/note"
 	"nota/internal/settings"
@@ -126,6 +127,7 @@ type App struct {
 	noteLang    *editor.Language
 	editorBinds []editor.Binding
 	mdOpts      markdown.Options
+	pal         kit.Palette // this frame's colors, set first in view
 
 	docCache   md.Document
 	docVer     uint64
@@ -298,7 +300,6 @@ func (app *App) catchUp(v *vault.Vault, appDir string) {
 		if app.vault == nil || app.vault.Root() != root {
 			return
 		}
-		app.status = plural(app.index.Count(), "note")
 		app.refreshTree()
 	})
 }
