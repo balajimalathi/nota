@@ -91,19 +91,14 @@ type App struct {
 	mode      int
 	tagFilter string
 
-	quickOpen    bool
-	quickQuery   string
-	quickList    ui.ListState
-	quickSel     int
-	palette      bool
-	paletteQuery string
-	paletteList  ui.ListState
-	paletteSel   int
-	searchOpen   bool
-	searchQuery  string
-	searchHits   []index.Hit
-	searchList   ui.ListState
-	searchSel    int
+	quickOpen   bool
+	quickQuery  string
+	quickList   ui.ListState
+	quickSel    int
+	searchOpen  bool
+	searchQuery string
+	searchList  ui.ListState
+	searchSel   int
 
 	creating    bool
 	renaming    bool
@@ -467,12 +462,8 @@ func (app *App) commands() []command {
 
 func (app *App) run(id string) {
 	switch id {
-	case "quickOpen":
-		app.quickOpen = true
-		app.quickSel = 0
-	case "commandPalette":
-		app.palette = true
-		app.paletteSel = 0
+	case "quickOpen", "commandPalette":
+		app.quickOpen, app.quickQuery, app.quickSel = true, "", 0
 	case "search":
 		app.searchOpen = true
 		app.searchSel = 0
@@ -528,7 +519,7 @@ func (app *App) run(id string) {
 }
 
 func (app *App) shortcuts(c *ui.Context) {
-	if app.quickOpen || app.palette || app.searchOpen || app.creating || app.renaming || app.settingsOn || app.syncOn || app.templatesOn || app.deleting {
+	if app.quickOpen || app.searchOpen || app.creating || app.renaming || app.settingsOn || app.syncOn || app.templatesOn || app.deleting {
 		return
 	}
 	for _, b := range app.bindings {

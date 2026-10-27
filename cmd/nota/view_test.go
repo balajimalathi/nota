@@ -71,3 +71,20 @@ func TestWorkspaceShowsKit(t *testing.T) {
 		}
 	}
 }
+
+func TestPaletteFindsNotesAndCommands(t *testing.T) {
+	app := testApp(t)
+	tt := ui.NewTester(app.view, width, height)
+	tt.Key(ui.Cmd, ui.KeyO)
+	tt.Type("ideas")
+	tt.Key(0, ui.KeyEnter)
+	if app.quickOpen || app.current() == nil || app.current().path != "Ideas.md" {
+		t.Fatalf("after Enter on ideas: open %v, texts %q", app.quickOpen, tt.Texts())
+	}
+	tt.Key(ui.Cmd, ui.KeyO)
+	tt.Type("settings")
+	tt.Key(0, ui.KeyEnter)
+	if !app.settingsOn {
+		t.Errorf("Enter on settings did not open Settings; texts %q", tt.Texts())
+	}
+}

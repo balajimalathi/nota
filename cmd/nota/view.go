@@ -5,7 +5,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"nota/internal/index"
 	"nota/internal/kit"
 	"nota/internal/note"
 	"nota/internal/settings"
@@ -176,19 +175,8 @@ func (app *App) statusBar(c *ui.Context) {
 }
 
 func (app *App) modals(c *ui.Context) {
-	app.picker(c, &app.quickOpen, "Quick open", &app.quickQuery, &app.quickList, &app.quickSel, func(q string) []index.Hit {
-		if app.index == nil {
-			return nil
-		}
-		return app.index.Fuzzy(q, 30)
-	}, func(h index.Hit) { app.openNote(h.Path) })
-	app.commandPicker(c)
-	app.picker(c, &app.searchOpen, "Search notes", &app.searchQuery, &app.searchList, &app.searchSel, func(q string) []index.Hit {
-		if strings.TrimSpace(q) == "" || app.index == nil {
-			return nil
-		}
-		return app.index.Search(q, 40)
-	}, func(h index.Hit) { app.openNote(h.Path) })
+	app.picker(c, &app.quickOpen, "Search notes or type a command…", &app.quickQuery, &app.quickList, &app.quickSel, app.quickItems)
+	app.picker(c, &app.searchOpen, "Search inside notes…", &app.searchQuery, &app.searchList, &app.searchSel, app.searchItems)
 	app.nameModal(c, &app.creating, "New note", "Name", func() {
 		app.createNamed(app.modalText)
 		app.creating = false
@@ -219,65 +207,102 @@ func (app *App) modals(c *ui.Context) {
 	app.templateModal(c)
 }
 
-func (app *App) picker(c *ui.Context, open *bool, title string, query *string, list *ui.ListState, sel *int, search func(string) []index.Hit, choose func(index.Hit)) {
-	ui.Modal(c, open, func() {
-		ui.Text(c, title).Bold()
-		hits := search(*query)
-		if ui.SearchField(c, query).AutoFocus().Width(420).Submitted() && len(hits) > 0 {
-			choose(hits[0])
-			*open = false
-		}
-		if len(hits) == 0 {
-			ui.Text(c, "No matches").TextColor(c.Theme().TextMuted)
-			return
-		}
-		if *sel >= len(hits) {
-			*sel = 0
-		}
-		list.Selected = sel
-		if ui.List(c, list, len(hits), func(i int) {
-			ui.Column(c).Gap(2).Children(func() {
-				ui.Text(c, hits[i].Title).Bold()
-				sub := hits[i].Path
-				if hits[i].Snippet != "" {
-					sub = hits[i].Snippet
-				}
-				ui.Text(c, sub).TextColor(c.Theme().TextMuted).FontSize(c.Theme().FontSize - 1)
-			})
-		}).Height(320).Width(420).Submitted() {
-			if *sel >= 0 && *sel < len(hits) {
-				choose(hits[*sel])
-				*open = false
-			}
-		}
-	})
+type paletteItem struct {
+	icon       *ui.SVG
+	title, sub string
+	run        func()
 }
 
-func (app *App) commandPicker(c *ui.Context) {
-	ui.Modal(c, &app.palette, func() {
-		ui.Text(c, "Commands").Bold()
-		cmds := filterCommands(app.commands(), app.paletteQuery)
-		if ui.SearchField(c, &app.paletteQuery).AutoFocus().Width(420).Submitted() && len(cmds) > 0 {
-			app.palette = false
-			app.run(cmds[0].ID)
+func (app *App) quickItems(q string) []paletteItem {
+	var out []paletteItem
+	if app.index != nil {
+		for _, h := range app.index.Fuzzy(q, 30) {
+			out = append(out, paletteItem{kit.IconNote, h.Title, h.Path, func() { app.openNote(h.Path) }})
 		}
-		if len(cmds) == 0 {
-			ui.Text(c, "No commands").TextColor(c.Theme().TextMuted)
-			return
+	}
+	for _, cmd := range filterCommands(app.commands(), q) {
+		out = append(out, paletteItem{kit.IconCommand, cmd.Title, "Command", func() { app.run(cmd.ID) }})
+	}
+	return out
+}
+
+func (app *App) searchItems(q string) []paletteItem {
+	if strings.TrimSpace(q) == "" || app.index == nil {
+		return nil
+	}
+	var out []paletteItem
+	for _, h := range app.index.Search(q, 40) {
+		sub := h.Path
+		if h.Snippet != "" {
+			sub = h.Snippet
 		}
-		if app.paletteSel >= len(cmds) {
-			app.paletteSel = 0
+		out = append(out, paletteItem{kit.IconNote, h.Title, sub, func() { app.openNote(h.Path) }})
+	}
+	return out
+}
+
+// picker is the command palette: a field over items, chosen with the
+// arrows and Enter. It closes before it runs the choice.
+func (app *App) picker(c *ui.Context, open *bool, placeholder string, query *string, list *ui.ListState, sel *int, items func(string) []paletteItem) {
+	kit.Dialog(c, open, 560, func() {
+		t := c.Theme()
+		its := items(*query)
+		if *sel >= len(its) {
+			*sel = 0
 		}
-		app.paletteList.Selected = &app.paletteSel
-		if ui.List(c, &app.paletteList, len(cmds), func(i int) {
-			ui.Text(c, cmds[i].Title)
-		}).Height(320).Width(420).Submitted() {
-			if app.paletteSel >= 0 && app.paletteSel < len(cmds) {
-				id := cmds[app.paletteSel].ID
-				app.palette = false
-				app.run(id)
+		if c.Shortcut(0, ui.KeyDown) && *sel < len(its)-1 {
+			*sel++
+		}
+		if c.Shortcut(0, ui.KeyUp) && *sel > 0 {
+			*sel--
+		}
+		choose := func() {
+			if *sel >= 0 && *sel < len(its) {
+				*open = false
+				its[*sel].run()
 			}
 		}
+		ui.Row(c).Height(48).Padding(0, 14).Gap(10).AlignItems(ui.Center).
+			BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
+			ui.Icon(c, kit.IconSearch).FontSize(16).TextColor(t.TextMuted)
+			in := ui.TextInput(c, query).Placeholder(placeholder).AutoFocus().Grow(1).
+				Border(0, ui.Transparent).Background(ui.Transparent)
+			if in.Submitted() {
+				choose()
+			}
+		})
+		if len(its) == 0 {
+			kit.EmptyState(c, kit.IconSearch, "No matches", "Try another word.", "")
+			return
+		}
+		quiet := *kit.Quiet(app.pal, t.FontSize)
+		quiet.Surface = app.pal.Background
+		kit.Scoped(c, &quiet, func() {
+			list.Selected = sel
+			l := ui.List(c, list, len(its), func(i int) {
+				it := its[i]
+				ui.Row(c).Gap(10).Padding(0, 6).AlignItems(ui.Center).Children(func() {
+					ui.Icon(c, it.icon).FontSize(15).TextColor(quiet.TextMuted)
+					ui.Text(c, it.title).SingleLine().Grow(1)
+					ui.Text(c, it.sub).FontSize(12).TextColor(quiet.TextMuted).SingleLine().MaxWidth(240)
+				})
+			}).Height(300).Padding(6)
+			if l.Submitted() {
+				choose()
+			}
+		})
+		ui.Row(c).Height(36).Padding(0, 14).Gap(14).AlignItems(ui.Center).
+			BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+			keyHint := func(label string, keys ...string) {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					kit.Kbd(c, keys...)
+					ui.Text(c, label).FontSize(12).TextColor(t.TextMuted)
+				})
+			}
+			keyHint("navigate", "↑", "↓")
+			keyHint("open", "Enter")
+			keyHint("close", "Esc")
+		})
 	})
 }
 
