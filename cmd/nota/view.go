@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -324,58 +325,86 @@ func (app *App) nameModal(c *ui.Context, open *bool, title, label string, done f
 	})
 }
 
+var (
+	settingsSections = []string{"General", "Editor", "Assistant"}
+	themeNames       = []string{"system", "light", "dark"}
+)
+
 func (app *App) settingsModal(c *ui.Context) {
-	ui.Modal(c, &app.settingsOn, func() {
-		ui.Text(c, "Settings").Bold()
-		ui.Text(c, "Theme").TextColor(c.Theme().TextMuted)
-		ui.Row(c).Gap(6).Children(func() {
-			for _, name := range []string{"system", "light", "dark", "slate"} {
-				n := name
-				label := n
-				if n == app.settings.Theme {
-					label = "● " + n
-				}
-				if ui.Button(c, label).Clicked() {
-					app.settings.Theme = n
-					_ = settings.Save(app.settings)
-				}
-			}
-		})
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Font "+itoa(int(app.settings.FontSize)))
-			if ui.Button(c, "−").Clicked() && app.settings.FontSize > 11 {
-				app.settings.FontSize--
-				_ = settings.Save(app.settings)
-			}
-			if ui.Button(c, "+").Clicked() && app.settings.FontSize < 28 {
-				app.settings.FontSize++
-				_ = settings.Save(app.settings)
-			}
-		})
-		if ui.Toggle(c, &app.settings.SoftWrap, "Soft wrap").Clicked() {
-			_ = settings.Save(app.settings)
-		}
-		ui.Text(c, "AI endpoint").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.AIEndpoint).Width(360)
-		ui.Text(c, "Chat model").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.AIChatModel).Width(360)
-		ui.Text(c, "Embed model").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.AIEmbedModel).Width(360)
-		ui.Text(c, "API key").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.AIAPIKey).Width(360)
-		ui.Text(c, "Daily note path").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.DailyFormat).Width(360)
-		ui.Text(c, "Templates folder").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.TemplatesDir).Width(360)
-		ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-			if ui.PrimaryButton(c, "Done").Clicked() {
-				app.refreshClient()
-				_ = settings.Save(app.settings)
-				go app.pingAI()
-				app.settingsOn = false
-			}
+	kit.Dialog(c, &app.settingsOn, 640, func() {
+		ui.Row(c).Height(420).AlignItems(ui.Stretch).Children(func() {
+			kit.Scoped(c, kit.Quiet(app.pal, c.Theme().FontSize), func() {
+				qt := c.Theme()
+				ui.Column(c).Width(170).Shrink(0).Padding(12, 8).Gap(2).Background(qt.Surface).
+					BorderWidth(0, 1, 0, 0).BorderColor(qt.Border).Children(func() {
+					ui.Row(c).Padding(4, 8, 10, 8).Children(func() { ui.Text(c, "Settings").FontWeight(600) })
+					icons := []*ui.SVG{kit.IconSettings, kit.IconLive, kit.IconAI}
+					for i, name := range settingsSections {
+						if kit.NavRow(c.Key(name), icons[i], name, app.settingsSec == i, nil).Clicked() {
+							app.settingsSec = i
+						}
+					}
+				})
+			})
+			ui.Column(c).Grow(1).Padding(20, 24).Gap(16).Children(func() {
+				ui.Text(c, settingsSections[app.settingsSec]).FontSize(16).FontWeight(600)
+				ui.Scroll(c).Grow(1).Children(func() {
+					ui.Form(c, func() { app.settingsFields(c) })
+				})
+				ui.Row(c).Justify(ui.End).Children(func() {
+					if ui.PrimaryButton(c, "Done").Clicked() {
+						app.refreshClient()
+						_ = settings.Save(app.settings)
+						go app.pingAI()
+						app.settingsOn = false
+					}
+				})
+			})
 		})
 	})
+}
+
+func (app *App) settingsFields(c *ui.Context) {
+	save := func() { _ = settings.Save(app.settings) }
+	in := func(v *string) ui.Element { return ui.TextInput(c, v).Width(280) }
+	switch app.settingsSec {
+	case 0:
+		ui.Field(c, "Appearance", func() {
+			if name, ok := pickName(c, app.settings.Theme, themeNames, "System", "Light", "Dark"); ok {
+				app.settings.Theme = name
+				save()
+			}
+		}).Description("System follows your OS appearance.")
+		ui.Field(c, "Daily note path", func() { in(&app.settings.DailyFormat) }).Description("A Go time layout, as daily/2006-01-02.")
+		ui.Field(c, "Templates folder", func() { in(&app.settings.TemplatesDir) })
+	case 1:
+		ui.Field(c, "Font size", func() {
+			f := float64(app.settings.FontSize)
+			if ui.NumberInput(c, &f, 11, 28, 1).Width(100).Changed() {
+				app.settings.FontSize = float32(f)
+				save()
+			}
+		})
+		ui.Field(c, "Soft wrap", func() {
+			if ui.Switch(c, &app.settings.SoftWrap).Changed() {
+				save()
+			}
+		})
+	default:
+		ui.Field(c, "Endpoint", func() { in(&app.settings.AIEndpoint) }).Description("Any OpenAI-compatible server. Ollama by default.")
+		ui.Field(c, "Chat model", func() { in(&app.settings.AIChatModel) })
+		ui.Field(c, "Embed model", func() { in(&app.settings.AIEmbedModel) })
+		ui.Field(c, "API key", func() { in(&app.settings.AIAPIKey).Password() })
+	}
+}
+
+// pickName shows names as kit.Tabs with labels and reports a new choice.
+// A name not in names, as an old "slate", shows as the first.
+func pickName(c *ui.Context, cur string, names []string, labels ...string) (string, bool) {
+	sel := max(slices.Index(names, cur), 0)
+	was := sel
+	kit.Tabs(c, &sel, nil, labels...)
+	return names[sel], sel != was
 }
 
 func (app *App) templateModal(c *ui.Context) {

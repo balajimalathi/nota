@@ -103,6 +103,7 @@ type App struct {
 	creating    bool
 	renaming    bool
 	settingsOn  bool
+	settingsSec int
 	syncOn      bool
 	templatesOn bool
 	deleting    bool

@@ -6,58 +6,61 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"nota/internal/kit"
 	"nota/internal/settings"
 	"nota/internal/sync"
 )
 
+var syncModes = []string{"off", "git", "folder", "http"}
+
 func (app *App) syncModal(c *ui.Context) {
-	ui.Modal(c, &app.syncOn, func() {
-		ui.Text(c, "Sync").Bold()
-		ui.Text(c, "Notes stay files. Git, a folder, or nota serve.").TextColor(c.Theme().TextMuted)
-		ui.Row(c).Gap(6).Children(func() {
-			for _, mode := range []string{"off", "git", "folder", "http"} {
-				m := mode
-				label := m
-				if m == app.settings.SyncMode {
-					label = "● " + m
-				}
-				if ui.Button(c, label).Clicked() {
-					app.settings.SyncMode = m
-					_ = settings.Save(app.settings)
+	kit.Dialog(c, &app.syncOn, 520, func() {
+		t := c.Theme()
+		ui.Column(c).Padding(20, 24).Gap(16).Children(func() {
+			ui.Column(c).Gap(4).Children(func() {
+				ui.Text(c, "Sync").FontSize(16).FontWeight(600)
+				ui.Text(c, "Notes stay files. Git, a folder, or nota serve.").TextColor(t.TextMuted)
+			})
+			ui.Form(c, func() {
+				ui.Field(c, "Method", func() {
+					if m, ok := pickName(c, app.settings.SyncMode, syncModes, "Off", "Git", "Folder", "HTTP"); ok {
+						app.settings.SyncMode = m
+						_ = settings.Save(app.settings)
+						app.refreshSync()
+					}
+				})
+				ui.Field(c, "Remote", func() { ui.TextInput(c, &app.settings.SyncRemote).Width(280) }).
+					Description("A folder, or http://host:8765 for nota serve.")
+				ui.Field(c, "Token", func() { ui.TextInput(c, &app.settings.SyncToken).Width(280).Password() })
+			})
+			if app.syncStatus != "" {
+				ui.Text(c, app.syncStatus).FontSize(12).TextColor(t.TextMuted)
+			}
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				if ui.Button(c, "Status").Clicked() {
 					app.refreshSync()
 				}
-			}
-		})
-		ui.Text(c, "Remote folder, or http://host:8765").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.SyncRemote).Width(360)
-		ui.Text(c, "Token").TextColor(c.Theme().TextMuted)
-		ui.TextInput(c, &app.settings.SyncToken).Width(360)
-		if app.syncStatus != "" {
-			ui.Text(c, app.syncStatus)
-		}
-		ui.Row(c).Gap(8).Children(func() {
-			if ui.Button(c, "Status").Clicked() {
-				app.refreshSync()
-			}
-			if ui.Button(c, "Pull").Clicked() {
-				app.syncDo(false)
-			}
-			if ui.PrimaryButton(c, "Push").Clicked() {
-				app.syncDo(true)
-			}
-			if app.settings.SyncMode == "git" && ui.Button(c, "git init").Clicked() {
-				g := &sync.Git{Root: app.vault.Root(), Device: app.settings.Device}
-				if err := g.Init(context.Background()); err != nil {
-					app.syncStatus = err.Error()
-				} else {
-					app.syncStatus = "Repository created"
+				if ui.Button(c, "Pull").Clicked() {
+					app.syncDo(false)
 				}
-			}
+				if ui.PrimaryButton(c, "Push").Clicked() {
+					app.syncDo(true)
+				}
+				if app.settings.SyncMode == "git" && ui.Button(c, "git init").Clicked() {
+					g := &sync.Git{Root: app.vault.Root(), Device: app.settings.Device}
+					if err := g.Init(context.Background()); err != nil {
+						app.syncStatus = err.Error()
+					} else {
+						app.syncStatus = "Repository created"
+					}
+				}
+				ui.Spacer(c)
+				if ui.Button(c, "Close").Clicked() {
+					_ = settings.Save(app.settings)
+					app.syncOn = false
+				}
+			})
 		})
-		if ui.Button(c, "Close").Clicked() {
-			_ = settings.Save(app.settings)
-			app.syncOn = false
-		}
 	})
 }
 

@@ -126,3 +126,20 @@ func TestAssistantPane(t *testing.T) {
 		t.Errorf("tab %d, texts %q", app.rightTab, tt.Texts())
 	}
 }
+
+func TestSettingsPicksTheme(t *testing.T) {
+	app := testApp(t)
+	tt := ui.NewTester(app.view, width, height)
+	if err := tt.Click("Settings"); err != nil {
+		t.Fatal(err)
+	}
+	if !app.settingsOn || !tt.HasText("Appearance") {
+		t.Fatalf("settings open %v, texts %q", app.settingsOn, tt.Texts())
+	}
+	if err := tt.Click("Dark"); err != nil {
+		t.Fatal(err)
+	}
+	if app.settings.Theme != "dark" {
+		t.Errorf("theme %q after clicking Dark", app.settings.Theme)
+	}
+}
