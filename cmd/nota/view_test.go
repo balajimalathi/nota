@@ -104,3 +104,14 @@ func TestSidebarAndSidePane(t *testing.T) {
 		t.Errorf("tags pane shows %q", tt.Texts())
 	}
 }
+
+func TestClosingLastTabShowsEmptyState(t *testing.T) {
+	app := testApp(t)
+	tt := ui.NewTester(app.view, width, height)
+	if err := tt.Click("Close Roadmap"); err != nil {
+		t.Fatal(err)
+	}
+	if len(app.tabs) != 0 || !tt.HasText("Pick a note on the left") {
+		t.Errorf("tabs %d, texts %q", len(app.tabs), tt.Texts())
+	}
+}

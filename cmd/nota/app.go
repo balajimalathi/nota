@@ -601,13 +601,15 @@ func (app *App) newState(text string) *editor.State {
 	buf.SetLanguage(app.noteLang)
 	st := &editor.State{
 		Buffer:       buf,
+		LineNumbers:  editor.LineNumbersOff,
+		NoFolding:    true,
 		SoftWrap:     app.settings.SoftWrap,
 		Bindings:     app.editorBinds,
 		OnCompletion: app.complete,
 		OnDefinition: app.gotoDef,
 		OnHover:      app.hover,
 		Placeholder:  "Start writing…",
-		LineHeight:   1.45,
+		LineHeight:   1.6,
 	}
 	if app.settings.FontSize > 0 {
 		st.Font.Size = app.settings.FontSize

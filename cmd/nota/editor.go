@@ -9,66 +9,80 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
 
+	"nota/internal/kit"
 	"nota/internal/md"
 	"nota/internal/note"
 )
 
 func (app *App) editorColumn(c *ui.Context) {
-	ui.Column(c).Grow(1).Fill().Children(func() {
+	ui.Column(c).Grow(1).Fill().MinWidth(0).Children(func() {
 		app.tabStrip(c)
-		if app.current() == nil {
-			ui.Column(c).Grow(1).Center().Children(func() {
-				ui.Text(c, "No note open").TextColor(c.Theme().TextMuted)
-				if ui.Button(c, "New note").Clicked() {
-					app.run("newNote")
-				}
-			})
-			return
-		}
-		switch app.mode {
-		case modeRead:
+		t := app.current()
+		switch {
+		case t == nil:
+			if kit.EmptyState(c, kit.IconNote, "No note open", "Pick a note on the left, or start a new one.", "New note") {
+				app.run("newNote")
+			}
+		case app.mode == modeRead:
 			app.reading(c)
 		default:
-			t := app.current()
 			th := editor.DefaultTheme(c.Theme())
+			th.ActiveLine = ui.Transparent
+			th.Tokens[editor.TokenHeading].Color = c.Theme().Text
+			th.Tokens[editor.TokenLink].Color = app.pal.Link
 			if app.mode == modeLive {
 				th.Tokens[editor.TokenMeta] = editor.TokenStyle{Color: th.Background}
 			}
 			t.state.Theme = th
-			editor.View(c, t.state).Grow(1)
+			// A column, so Grow gives the editor a height. The same key as a tab
+			// would make the two one element, and the note would not show.
+			ui.Column(c.Key("edit:"+t.path)).Grow(1).AlignItems(ui.Center).Padding(36, 24, 48, 24).Children(func() {
+				editor.View(c, t.state).Grow(1).FillWidth().MaxWidth(720)
+			})
 		}
 	})
 }
 
 func (app *App) tabStrip(c *ui.Context) {
-	ui.Row(c).Gap(4).Padding(4, 6).Children(func() {
-		var closeAt = -1
-		for i, t := range app.tabs {
-			label := note.TitleFromName(t.path)
-			if t.state.Buffer.Modified() {
-				label = "● " + label
+	t := c.Theme()
+	closeAt := -1
+	ui.Row(c).Height(40).Shrink(0).Padding(0, 8).Gap(2).AlignItems(ui.Center).
+		BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
+		for i, tab := range app.tabs {
+			on := i == app.active
+			name := note.TitleFromName(tab.path)
+			row := ui.Row(c.Key("tab:"+tab.path)).Height(28).Padding(0, 4, 0, 10).Gap(4).Radius(6).AlignItems(ui.Center)
+			hover := row.Hovered()
+			if on || hover {
+				row.Background(t.SurfaceHover)
 			}
-			if i == app.active {
-				label = label + " "
-			}
-			row := ui.Row(c).Gap(2).Padding(2, 6).Radius(6)
-			if i == app.active {
-				row.Background(c.Theme().Background)
-			}
-			idx := i
 			row.Children(func() {
-				if ui.Button(c, label).Clicked() {
-					app.active = idx
+				label := ui.ButtonBase(c).Children(func() {
+					txt := ui.Text(c, name).FontSize(t.FontSize - 1).SingleLine().MaxWidth(180)
+					if !on {
+						txt.TextColor(t.TextMuted)
+					}
+				})
+				if label.Clicked() {
+					app.active = i
 				}
-				if ui.Button(c, "×").Clicked() {
-					closeAt = idx
+				if on || hover {
+					if kit.IconButton(c, kit.IconClose, "Close "+name, false).Size(20, 20).Clicked() {
+						closeAt = i
+					}
+					return
 				}
+				ui.Row(c).Size(20, 20).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
+					if tab.state.Buffer.Modified() {
+						kit.Dot(c, t.TextMuted)
+					}
+				})
 			})
 		}
-		if closeAt >= 0 {
-			app.closeTab(closeAt)
-		}
 	})
+	if closeAt >= 0 {
+		app.closeTab(closeAt)
+	}
 }
 
 func (app *App) reading(c *ui.Context) {
@@ -90,9 +104,11 @@ func (app *App) reading(c *ui.Context) {
 		app.previewFor = t.path
 		app.previewVer = ver
 	}
-	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).Padding(20, 28).Children(func() {
-			markdown.View(c, app.preview, &app.mdOpts)
+	ui.Scroll(c.Key("read:" + t.path)).Grow(1).Children(func() {
+		ui.Row(c).Justify(ui.Center).Padding(40, 24).Children(func() {
+			ui.Column(c).Grow(1).MaxWidth(720).Children(func() {
+				markdown.View(c, app.preview, &app.mdOpts)
+			})
 		})
 	})
 }
