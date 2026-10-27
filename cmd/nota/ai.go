@@ -12,58 +12,65 @@ import (
 
 	"nota/internal/ai"
 	"nota/internal/embed"
+	"nota/internal/kit"
 )
 
 func (app *App) aiPane(c *ui.Context) {
+	t := c.Theme()
 	ui.Column(c).Grow(1).Gap(8).Children(func() {
-		ui.Text(c, "Local model · "+app.aiReach).TextColor(c.Theme().TextMuted)
-		ui.Row(c).Gap(4).Children(func() {
-			if ui.Button(c, "Summarize").Clicked() {
-				app.runAI("summarize")
-			}
-			if ui.Button(c, "Rewrite").Clicked() {
-				app.runAI("rewrite")
-			}
-			if ui.Button(c, "Continue").Clicked() {
-				app.runAI("continue")
-			}
-			if ui.Button(c, "Title").Clicked() {
-				app.runAI("title")
+		ui.Row(c).Wrap().Gap(6).Children(func() {
+			for _, a := range [][2]string{{"summarize", "Summarize"}, {"rewrite", "Rewrite"}, {"continue", "Continue"}, {"title", "Title & tags"}} {
+				if kit.Chip(c.Key(a[0]), a[1], "").Clicked() {
+					app.runAI(a[0])
+				}
 			}
 		})
 		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).Gap(8).Children(func() {
+			ui.Column(c).Gap(12).PaddingY(8).Children(func() {
 				if len(app.aiMessages) == 0 {
-					ui.Text(c, "Ask about this note, or index the vault and ask across it. Works with Ollama at the endpoint in Settings.").TextColor(c.Theme().TextMuted)
+					ui.Text(c, "Ask about this note, or index the vault and ask across it. Works with Ollama at the endpoint in Settings.").TextColor(t.TextMuted)
 				}
-				for i := range app.aiMessages {
-					m := app.aiMessages[i]
-					who := "You"
-					if m.Role == "assistant" {
-						who = "Nota"
+				for i, m := range app.aiMessages {
+					if m.Role != "assistant" {
+						ui.Row(c.Key(i)).Justify(ui.End).Children(func() {
+							ui.Row(c).Padding(6, 10).Radius(10).Background(t.SurfaceHover).MaxWidth(220).Children(func() {
+								ui.Text(c, m.Text)
+							})
+						})
+						continue
 					}
-					ui.Text(c, who).Bold()
-					if m.Role == "assistant" && m.Done {
-						markdown.View(c, m.Text, &app.mdOpts)
-					} else if m.Role == "assistant" {
-						markdown.Stream(c, m.Text, &app.mdOpts)
-					} else {
-						ui.Text(c, m.Text)
-					}
+					ui.Row(c.Key(i)).Gap(8).Children(func() {
+						ui.Icon(c, kit.IconAI).FontSize(14).TextColor(app.pal.Link)
+						ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+							if m.Done {
+								markdown.View(c, m.Text, &app.mdOpts)
+							} else {
+								markdown.Stream(c, m.Text, &app.mdOpts)
+							}
+						})
+					})
 				}
 			})
 		})
 		ui.Row(c).Gap(6).Children(func() {
-			if ui.Button(c, "Insert").Clicked() {
+			if kit.Chip(c, "Insert", "").Clicked() {
 				app.insertAI()
 			}
-			if ui.Button(c, "Index vault").Clicked() {
+			if kit.Chip(c, "Index vault", "").Clicked() {
 				app.indexVault()
 			}
 		})
-		if ui.TextInput(c, &app.aiInput).Placeholder("Ask the vault…").Submitted() {
-			app.askVault()
-		}
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(4).Radius(10).Border(1, t.Border).Children(func() {
+			in := ui.TextInput(c, &app.aiInput).Placeholder("Ask the vault…").Grow(1).
+				Border(0, ui.Transparent).Background(ui.Transparent)
+			send := ui.PrimaryButton(c, "").Size(28, 28).Padding(0).Radius(8).Label("Send").Children(func() {
+				ui.Icon(c, kit.IconSend).FontSize(15)
+			})
+			if in.Submitted() || send.Clicked() {
+				app.askVault()
+			}
+		})
+		ui.Text(c, "Local model · "+app.aiReach).FontSize(11).TextColor(t.TextMuted)
 	})
 }
 

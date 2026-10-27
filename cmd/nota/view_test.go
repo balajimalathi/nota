@@ -115,3 +115,14 @@ func TestClosingLastTabShowsEmptyState(t *testing.T) {
 		t.Errorf("tabs %d, texts %q", len(app.tabs), tt.Texts())
 	}
 }
+
+func TestAssistantPane(t *testing.T) {
+	app := testApp(t)
+	tt := ui.NewTester(app.view, width, height)
+	if err := tt.Click("Assistant"); err != nil {
+		t.Fatal(err)
+	}
+	if app.rightTab != 4 || !tt.HasText("Title & tags") {
+		t.Errorf("tab %d, texts %q", app.rightTab, tt.Texts())
+	}
+}
