@@ -161,7 +161,7 @@ func (w *workspace) titleBar(c *ui.Context) {
 		}
 		w.breadcrumb(c)
 		ui.Spacer(c)
-		if kit.SearchTrigger(c, "Search notes or run a command").Clicked() {
+		if kit.SearchTrigger(c, "Search notes or run a command", kit.Mod(), "K").Clicked() {
 			w.openPalette()
 		}
 		ui.Spacer(c)

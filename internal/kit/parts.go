@@ -119,8 +119,9 @@ func Tabs(c *ui.Context, selected *int, icons []*ui.SVG, labels ...string) ui.El
 }
 
 // SearchTrigger is the quiet, wide field that opens the command palette:
-// an icon, placeholder text and the shortcut. It is a button; ask Clicked.
-func SearchTrigger(c *ui.Context, placeholder string) ui.Element {
+// an icon, placeholder text and, unless keys is empty, the shortcut. It is
+// a button; ask Clicked.
+func SearchTrigger(c *ui.Context, placeholder string, keys ...string) ui.Element {
 	t := c.Theme()
 	b := ui.ButtonBase(c).Width(340).Height(30).Padding(0, 6, 0, 10).Gap(8).Radius(8).
 		Border(1, t.Border).Background(t.Background).TextColor(t.TextMuted).Label(placeholder)
@@ -130,7 +131,9 @@ func SearchTrigger(c *ui.Context, placeholder string) ui.Element {
 	b.Children(func() {
 		ui.Icon(c, IconSearch).FontSize(14)
 		ui.Text(c, placeholder).FontSize(t.FontSize - 1).SingleLine().Grow(1)
-		Kbd(c, Mod(), "K")
+		if len(keys) > 0 {
+			Kbd(c, keys...)
+		}
 	})
 	return b
 }

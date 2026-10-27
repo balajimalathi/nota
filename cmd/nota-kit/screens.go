@@ -76,7 +76,7 @@ func gallery(c *ui.Context, p kit.Palette, g *galleryState) {
 						kit.IconButton(c, kit.IconSearch, "Ghost", false)
 						kit.IconButton(c, kit.IconSidebar, "Ghost, on", true)
 						kit.Chip(c, "#chip", "3")
-						kit.SearchTrigger(c, "Search trigger")
+						kit.SearchTrigger(c, "Search trigger", kit.Mod(), "K")
 					})
 				})
 				section("Inputs", func() {
