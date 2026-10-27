@@ -43,6 +43,10 @@ func (p *preview) view(c *ui.Context) {
 	ui.Column(c).Fill().Background(pal.Background).Children(func() {
 		p.bar(c)
 		switch p.screen {
+		case screenWelcome:
+			welcome(c, pal, func(string) { p.screen = screenWorkspace })
+		case screenKit:
+			gallery(c, pal, &p.gallery)
 		default:
 			p.ws.view(c, pal)
 		}
