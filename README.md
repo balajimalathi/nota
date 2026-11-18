@@ -48,3 +48,18 @@ Defaults are in `%AppData%\nota\keybindings.json` (VS Code’s format, comments 
 | Ctrl+W | Close tab |
 | Ctrl+E | Source / live / reading |
 | Ctrl+Shift+D | Daily note |
+
+## Related projects
+
+Nota is evolving into a local-first SEO content workspace. WordPress sync will be **merged into Nota** (Obsidian and the separate wp-sync CLI are not part of the target workflow). Markdown stays Obsidian-compatible.
+
+| Path | Role |
+|---|---|
+| [`backlog.md`](backlog.md) | Implementation backlog |
+| [`docs/superpowers/specs/2026-11-18-repository-discovery-architecture-audit.md`](docs/superpowers/specs/2026-11-18-repository-discovery-architecture-audit.md) | Discovery / architecture audit |
+| [`docs/superpowers/specs/2026-11-18-seo-cms-decisions.md`](docs/superpowers/specs/2026-11-18-seo-cms-decisions.md) | Locked decisions (D1–D6), site layout, MCP |
+| `../obsidian-wp-sync` | Reference implementation to port into Nota |
+| `../obsidian/sites/jsontoimg` | Existing content vault to migrate/open as a Nota site |
+| `../jsontoimg` | Product monorepo (Astro/Next); MD copy from Nota is manual |
+
+Nota’s built-in **Sync** (git / folder / HTTP) remains for vault file sync. WP pull/push is a separate, in-app capability once Epic 3 lands.
