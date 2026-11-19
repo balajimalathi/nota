@@ -1,9 +1,9 @@
 ---
-title: Nota Repository Discovery and Architecture Audit
+
+## title: Nota Repository Discovery and Architecture Audit
 date: 2026-11-18
 status: complete
 graft: 0.30.1
----
 
 # Nota Repository Discovery and Architecture Audit
 
@@ -26,7 +26,7 @@ The three workspace projects are **separate git roots** (plus one non-git vault 
 
 **Why content became chaotic:** the same logical articles exist as (1) live WordPress HTML, (2) vault Markdown from WP pull, (3) vault Markdown from public-site crawl (often different slugs/URLs), (4) Astro-rendered HTML from live WP, (5) optional `wordpress/*.json` snapshots, (6) parallel Astro docs MD that overlap crawled `static/docs`. Inventory tries to separate `wordpress` vs `static`, but crawl still materializes near-duplicates of WP posts under different paths. Keyword planning lives in CSV/Markdown **outside** note frontmatter, so targeting is not enforced by the sync engine.
 
-**Fit for SEO CMS direction:** Nota’s Markdown vault core can remain the file layer, but sites/publish/SEO/analytics are **new product layers** (not present today). The reusable foundation for Scenario B (WordPress-backed sites) is almost entirely in **obsidian-wp-sync `packages/core`**, not Nota; the Obsidian plugin is optional UI that spawns the CLI. Scenario A (crawl-only sites) partially exists as bootstrap/crawler. SEO keywords, GSC, SerpApi, briefs, and performance history are **outside** both apps (manual vault files + Cursor-level GSC MCP).
+**Fit for SEO CMS direction:** Nota’s Markdown vault core can remain the file layer, but sites/publish/SEO/analytics are **new product layers** (not present today). The reusable foundation for Scenario B (WordPress-backed sites) is almost entirely in **obsidian-wp-sync** `packages/core`, not Nota; the Obsidian plugin is optional UI that spawns the CLI. Scenario A (crawl-only sites) partially exists as bootstrap/crawler. SEO keywords, GSC, SerpApi, briefs, and performance history are **outside** both apps (manual vault files + Cursor-level GSC MCP).
 
 ---
 
@@ -127,9 +127,9 @@ Unrelated to WP: git / folder / HTTP vault file sync with conflict-renamed files
 | Astro runtime | `apps/site/src/pages/blog/[slug].astro` + WP REST | Same WP post, HTML at build/request time |
 | Snapshot | `wordpress/posts.json` id 91 | Offline dump |
 
-Bodies are near-duplicates (~14.5k chars) but not identical (static includes crawl chrome: skip links, “Published…”). Active `pillars`/`pages`/`static` have **no colliding `url_path` among themselves** (reconciler claims WP paths); the live near-duplicate uses a **different** public path (`/blog/getting-started-with-jsontoimg` vs `/blog/getting-started-with-jsontoimg-first-api-call`). Historical same-`url_path` copies live under `_archive/duplicate-static/` (~43 overlapping paths with live notes). Docs: ~46–48 parallel paths between vault `static/docs` and `apps/site/src/content/docs` with **0 identical bodies**.
+Bodies are near-duplicates (~14.5k chars) but not identical (static includes crawl chrome: skip links, “Published…”). Active `pillars`/`pages`/`static` have **no colliding** `url_path` **among themselves** (reconciler claims WP paths); the live near-duplicate uses a **different** public path (`/blog/getting-started-with-jsontoimg` vs `/blog/getting-started-with-jsontoimg-first-api-call`). Historical same-`url_path` copies live under `_archive/duplicate-static/` (~43 overlapping paths with live notes). Docs: ~46–48 parallel paths between vault `static/docs` and `apps/site/src/content/docs` with **0 identical bodies**.
 
-**Counts (vault, excluding `_archive`/`.wp-sync`):** ~67 `source: wordpress`, ~81 `source: static`, 67 `wp_id`s; inventory JSON: 67 wordpress + 84 static.
+**Counts (vault, excluding** `_archive`**/**`.wp-sync`**):** ~67 `source: wordpress`, ~81 `source: static`, 67 `wp_id`s; inventory JSON: 67 wordpress + 84 static.
 
 **Astro note:** `apps/app` (Next) is product-only (`robots` disallow all). Marketing is Astro `apps/site`. `apps/site/README.md` still claims some WP routes live in `src/content` — **stale**; code is WP REST. Monorepo `seo:check` (`scripts/seo-sitemap.ts`) validates URL coverage only; it does **not** enforce `wordpress/content-plan.json` keywords.
 

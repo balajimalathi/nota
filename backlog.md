@@ -54,39 +54,39 @@ sites/<site-id>/
 
 ### 1.1 Registry and site types
 
-- [ ] Persist per-site `.nota/site.json`: `id`, `name`, `publicSiteUrl`, `kind` ∈ {`framework_only`, `wordpress_cms`}, optional `framework` (`astro`|`next`|`other`), optional `wpApiUrl` (no passwords in file).
-- [ ] WP credentials in Nota user settings / OS keychain only.
-- [ ] Multi-site: vault may contain `sites/<id>/…`; switch active site in UI.
+- [x] Persist per-site `.nota/site.json`: `id`, `name`, `publicSiteUrl`, `kind` ∈ {`framework_only`, `wordpress_cms`}, optional `framework` (`astro`|`next`|`other`), optional `wpApiUrl` (no passwords in file).
+- [ ] WP credentials in Nota user settings / OS keychain only. (settings storage in progress)
+- [ ] Multi-site: vault may contain `sites/<id>/…`; switch active site in UI. (core site switch scaffolded)
 
 ### 1.2 Create rigid directories on site add
 
-- [ ] Ensure: `pages/`, `posts/`, `static/`, `keywords/` (incl. empty `audits/`), `assets/images/`, `notes/`, `_archive/`, `.nota/`.
-- [ ] Seed empty `keywords/index.yaml` and `.nota/inventory.yaml` as needed.
+- [x] Ensure: `pages/`, `posts/`, `static/`, `keywords/` (incl. empty `audits/`), `assets/images/`, `notes/`, `_archive/`, `.nota/`.
+- [x] Seed empty `keywords/index.yaml` and `.nota/inventory.yaml` as needed.
 
 ### 1.3 `pages/`
 
-- [ ] New page: nested folders allowed; prefer `index.md` for directory URLs.
-- [ ] Frontmatter: `title`, `url_path`, `source` (`wordpress`|`static`), `role: page`, optional `wp_id`, `primary_keyword`, `secondary_keywords`, `status`.
-- [ ] Default `url_path` from path (e.g. `pages/use-cases/certificates.md` → `/use-cases/certificates`).
+- [x] New page: nested folders allowed; prefer `index.md` for directory URLs. (core `CreatePage`)
+- [x] Frontmatter: `title`, `url_path`, `source` (`wordpress`|`static`), `role: page`, optional `wp_id`, `primary_keyword`, `secondary_keywords`, `status`.
+- [x] Default `url_path` from path (e.g. `pages/use-cases/certificates.md` → `/use-cases/certificates`).
 
 ### 1.4 `posts/` pillar / cluster
 
-- [ ] “New topic folder”: create `posts/<topic-slug>/index.md` with `role: pillar`.
-- [ ] “New cluster post”: sibling `.md` with `role: cluster`, `pillar: <topic-slug>`.
-- [ ] Default `url_path`: pillar from folder; cluster from filename.
-- [ ] UI/file-tree treats `index.md` as pillar; forbids topic folder without `index.md` (create or prompt).
+- [x] “New topic folder”: create `posts/<topic-slug>/index.md` with `role: pillar`.
+- [x] “New cluster post”: sibling `.md` with `role: cluster`, `pillar: <topic-slug>`.
+- [x] Default `url_path`: pillar from folder; cluster from filename. (tested)
+- [ ] UI/file-tree treats `index.md` as pillar; forbids topic folder without `index.md` (create or prompt). (core `ValidatePostFolder`)
 
 ### 1.5 `static/`, `notes/`, `assets/`
 
-- [ ] `static/`: same URL defaults as pages; only for non-WP routes (enforce when `kind=wordpress_cms`).
-- [ ] `notes/`: freeform; **no** `url_path` until promoted into `pages/` / `posts/` / `static/`.
-- [ ] `assets/`: image paths for notes; placeholders never push to WP.
+- [x] `static/`: same URL defaults as pages; only for non-WP routes (enforce when `kind=wordpress_cms`). (URL path in `DefaultURLPath`)
+- [ ] `notes/`: freeform; **no** `url_path` until promoted into `pages/` / `posts/` / `static/`. (intentional in layout)
+- [ ] `assets/`: image paths for notes; placeholders never push to WP. (dir exists, no push logic yet)
 
 ### 1.6 Migration
 
-- [ ] Open existing `obsidian/sites/jsontoimg` as a site.
-- [ ] Map legacy `pillars/` → `posts/` (topic folders + promote category index to `index.md` where needed).
-- [ ] Map `.wp-sync/` → `.nota/` (dual-read during transition OK).
+- [ ] Open existing `obsidian/sites/jsontoimg` as a site. (migration scaffold not yet done)
+- [ ] Map legacy `pillars/` → `posts/` (topic folders + promote category index to `index.md` where needed). (not started)
+- [ ] Map `.wp-sync/` → `.nota/` (dual-read during transition OK). (not started)
 
 **Done when:** Framework-only and WP sites can be added; new page/post get default links; post folders enforce pillar `index.md`.
 
@@ -237,7 +237,7 @@ Epic 3 may parallel Epic 1 after path/layout rules are implemented. Do not crawl
 
 ## Verification checklist
 
-- [ ] `sites/<id>/{pages,posts,static,keywords,assets,notes,_archive,.nota}/` created on add-site.
+- [x] `sites/<id>/{pages,posts,static,keywords,assets,notes,_archive,.nota}/` created on add-site. (core `EnsureLayout`)
 - [ ] `posts/<topic>/index.md` is pillar; siblings are clusters.
 - [ ] Default `url_path` from folder; override allowed at create.
 - [ ] Framework-only vs WordPress CMS chosen explicitly.
